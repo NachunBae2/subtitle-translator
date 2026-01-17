@@ -2,6 +2,14 @@
 
 한국어 자막을 영어 및 다국어로 번역하는 Electron 데스크톱 앱
 
+## Download
+
+[![Download DMG](https://img.shields.io/badge/Download-macOS%20DMG-blue?style=for-the-badge&logo=apple)](https://github.com/NachunBae2/subtitle-translator/releases/latest/download/자막.번역기_0.2.6_x64.dmg)
+
+**[최신 릴리즈 다운로드 (v0.2.6)](https://github.com/NachunBae2/subtitle-translator/releases/latest)**
+
+> macOS용 DMG 파일입니다. 다운로드 후 Applications 폴더에 드래그하여 설치하세요.
+
 ## Features
 
 - **한국어 → 영어 번역**: GPT-4 기반 고품질 번역
