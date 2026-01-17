@@ -71,6 +71,10 @@ interface ProjectState {
   unbindFolder: (projectId: string) => void;
   updateProjectName: (projectId: string, name: string) => void;
 
+  // Translation management
+  clearTranslations: (projectId: string) => void;
+  removeTranslation: (projectId: string, langCode: string) => void;
+
   // AI Analysis
   setSentimentScores: (projectId: string, scores: SentimentScore[]) => void;
   setContentSummary: (projectId: string, summary: ContentSummary) => void;
@@ -183,6 +187,24 @@ export const useProjectStore = create<ProjectState>()(
         set((state) => ({
           projects: state.projects.map((p) =>
             p.id === projectId ? { ...p, name } : p
+          ),
+        }));
+      },
+
+      clearTranslations: (projectId) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p.id === projectId ? { ...p, translations: [] } : p
+          ),
+        }));
+      },
+
+      removeTranslation: (projectId, langCode) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p.id === projectId
+              ? { ...p, translations: p.translations.filter((t) => t.langCode !== langCode) }
+              : p
           ),
         }));
       },

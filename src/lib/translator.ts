@@ -431,7 +431,7 @@ async function translateParallel(
       );
       results[index] = translated;
       completed++;
-      onProgress?.(completed, chunks.length, `${completed}/${chunks.length} 청크 완료`);
+      onProgress?.(completed, chunks.length, `${completed}번째 대화 덩어리 번역 완료`);
       return translated;
     });
 

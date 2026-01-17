@@ -18,7 +18,7 @@ export function MultiLangTab() {
   const { setStatus, setProgress, progress, statusMessage, isMultiLangTranslating, setIsMultiLangTranslating, createAbortController, cancelTranslation } = useAppStore();
   const { languages, getEnabled, addCustomLanguage } = useLanguageStore();
   const { setActiveTab } = useAppStore();
-  const { getCurrentProject, addTranslation, setProjectStatus } = useProjectStore();
+  const { getCurrentProject, addTranslation, setProjectStatus, clearTranslations, removeTranslation } = useProjectStore();
 
   const [currentLang, setCurrentLang] = useState<string>('');
   const [langProgress, setLangProgress] = useState<Record<string, 'pending' | 'translating' | 'done'>>({});
@@ -102,7 +102,8 @@ export function MultiLangTab() {
         }
 
         const langCode = selectedLanguages[i];
-        const langName = LANGUAGE_NAMES[langCode as Language] || langCode;
+        const langInfo = availableLanguages.find(l => l.code === langCode);
+        const langName = langInfo?.koreanName || langCode;
 
         let langSuccess = false;
         let langAttempt = 0;
@@ -340,12 +341,18 @@ export function MultiLangTab() {
     return `[${fileCode}]_${baseName}.srt`;
   };
 
-  // 초기화 (모든 번역 결과 삭제)
+  // 초기화 (모든 번역 결과 삭제 - MultiLang 스토어 + 프로젝트 스토어 연동)
   const handleReset = () => {
-    if (confirm('모든 번역 결과를 초기화하시겠습니까?')) {
+    if (confirm('모든 번역 결과를 초기화하시겠습니까?\n(Projects 탭의 다국어 번역도 함께 삭제됩니다)')) {
+      // MultiLang 스토어 초기화
       Object.keys(multiLangResults).forEach(langCode => {
         removeMultiLangResult(langCode);
       });
+      // 프로젝트 스토어의 translations도 초기화
+      const project = getCurrentProject();
+      if (project) {
+        clearTranslations(project.id);
+      }
       setViewingLang('');
       setLangProgress({});
       setStatus('idle', '초기화 완료');
@@ -732,6 +739,11 @@ export function MultiLangTab() {
                           e.stopPropagation();
                           if (confirm(`${koreanName} 번역을 삭제하시겠습니까?`)) {
                             removeMultiLangResult(langCode);
+                            // 프로젝트 스토어에서도 삭제
+                            const project = getCurrentProject();
+                            if (project) {
+                              removeTranslation(project.id, langCode);
+                            }
                             if (viewingLang === langCode) setViewingLang('');
                           }
                         }}

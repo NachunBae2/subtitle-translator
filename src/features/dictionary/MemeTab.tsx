@@ -199,7 +199,7 @@ export function MemeTab() {
   };
 
   return (
-    <div style={{ maxWidth: 700, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <div style={{ maxWidth: 900, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* 안내 */}
       <div style={{
         padding: '10px 14px',

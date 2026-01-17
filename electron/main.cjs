@@ -8,6 +8,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    backgroundColor: '#0d0d14', // 불투명 배경색 (앱 배경과 동일)
+    titleBarStyle: 'default', // 기본 타이틀바 스타일 (불투명)
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
