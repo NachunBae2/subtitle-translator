@@ -1,0 +1,184 @@
+/* Sidebar Component - OpenAI Platform Style */
+.sidebar {
+  width: 260px;
+  min-width: 260px;
+  height: 100vh;
+  background: var(--surface-sidebar);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+}
+
+.sidebar-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sidebar-logo-icon {
+  font-size: var(--text-xl);
+}
+
+.sidebar-logo-text {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: #ffffff;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+.sidebar-nav-item.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.sidebar-nav-item-icon {
+  font-size: var(--text-base);
+  width: 20px;
+  text-align: center;
+  opacity: 0.9;
+}
+
+.sidebar-nav-item-label {
+  flex: 1;
+  font-weight: 400;
+}
+
+.sidebar-nav-item-badge {
+  background: var(--color-primary-500);
+  color: #ffffff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+
+.sidebar-section {
+  padding: var(--space-3) var(--space-4);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: var(--space-2);
+}
+
+.sidebar-footer {
+  padding: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.sidebar-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.sidebar-status-dot.connected {
+  background: var(--color-success-500);
+}
+
+.sidebar-status-dot.disconnected {
+  background: var(--color-error-500);
+}
+
+/* Main Layout */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  height: 100%;
+  background: var(--surface-secondary);
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 260px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  height: 100%;
+  background: var(--surface-secondary);
+}
+
+.main-header {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-primary);
+}
+
+.main-header-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.main-header-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.main-body {
+  flex: 1;
+  padding: var(--space-6);
+  overflow-y: auto;
+  background: var(--surface-secondary);
+  min-height: 0;
+  animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 데스크톱 SaaS 레이아웃 - 전체 너비 활용 */
+.main-body.centered {
+  max-width: 100%;
+  padding: var(--space-6) var(--space-8);
+}
+
+/* 검수, 다국어 등 전체 너비 사용 */
+.main-body.full-width {
+  max-width: 100%;
+  padding: var(--space-6) var(--space-8);
+}

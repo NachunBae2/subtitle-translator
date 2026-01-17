@@ -1,0 +1,72 @@
+:root {
+  /* Dark Theme - v0.1.0 Exact Colors */
+
+  /* Primary (Purple accent) */
+  --color-primary-50: #1a1a2e;
+  --color-primary-100: #16213e;
+  --color-primary-500: #7c3aed;  /* Purple */
+  --color-primary-600: #6d28d9;
+  --color-primary-700: #5b21b6;
+
+  /* Neutral (main palette) - Dark */
+  --color-neutral-50: #0d0d14;
+  --color-neutral-100: #12121c;
+  --color-neutral-150: #1a1a28;
+  --color-neutral-200: #222230;
+  --color-neutral-300: #2a2a3c;
+  --color-neutral-400: #444466;
+  --color-neutral-500: #666688;
+  --color-neutral-600: #8888aa;
+  --color-neutral-700: #aaaacc;
+  --color-neutral-800: #ccccdd;
+  --color-neutral-900: #eeeeee;
+  --color-neutral-950: #ffffff;
+
+  /* Success - Green */
+  --color-success-400: #4ade80;
+  --color-success-500: #22c55e;
+
+  /* Error */
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+
+  /* Warning */
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+
+  /* Cyan for timestamps */
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+
+  /* Surfaces (Dark Theme - v0.1.0) */
+  --surface-background: #0d0d14;
+  --surface-primary: #12121c;
+  --surface-secondary: #0d0d14;
+  --surface-tertiary: #1a1a28;
+  --surface-card: #12121c;
+  --surface-card-hover: #1a1a28;
+  --surface-input: #0d0d14;
+  --surface-overlay: rgba(0, 0, 0, 0.7);
+  --surface-sidebar: #0d0d14;
+
+  /* Borders - Dark */
+  --border-subtle: #222230;
+  --border-default: #2a2a3c;
+  --border-focus: #7c3aed;
+
+  /* Text - Light on Dark */
+  --text-primary: #ffffff;
+  --text-secondary: #aaaacc;
+  --text-muted: #666688;
+  --text-inverse: #0d0d14;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #7c3aed, #a855f7);
+  --gradient-success: linear-gradient(135deg, #4ade80, #22c55e);
+  --gradient-card: transparent;
+}

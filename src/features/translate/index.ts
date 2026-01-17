@@ -1,0 +1,1 @@
+export { TranslateTab } from './TranslateTab';

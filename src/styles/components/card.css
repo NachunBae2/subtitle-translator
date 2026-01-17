@@ -1,0 +1,126 @@
+/* Card Component - OpenAI Platform Style */
+.card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.card-header-icon {
+  font-size: var(--text-xl);
+  opacity: 0.8;
+}
+
+.card-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.card-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+.card-body {
+  padding: 20px 24px;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-secondary);
+}
+
+/* Card Variants */
+.card-compact .card-header,
+.card-compact .card-body,
+.card-compact .card-footer {
+  padding: var(--space-4);
+}
+
+.card-flat {
+  background: var(--surface-card);
+  box-shadow: none;
+}
+
+.card-hover {
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  border-color: var(--border-default);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+/* Card Section */
+.card-section {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.card-section:last-child {
+  border-bottom: none;
+}
+
+.card-section-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin-bottom: var(--space-3);
+}
+
+/* Collapsible Card */
+.card-collapsible-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.card-collapsible-header:hover {
+  background: var(--surface-card-hover);
+}
+
+.card-collapse-icon {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-collapsed .card-collapse-icon {
+  transform: rotate(-90deg);
+}
+
+.card-collapsed .card-body {
+  display: none;
+}
+
+/* Card Grid */
+.card-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .card-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

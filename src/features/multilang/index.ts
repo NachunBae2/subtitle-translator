@@ -1,0 +1,1 @@
+export { MultiLangTab } from './MultiLangTab';
