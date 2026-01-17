@@ -228,7 +228,7 @@ export function SettingsTab() {
           </div>
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.5 }}>
-          💡 가격: 입력/출력 (1M 토큰당). 20개국어 번역 기준: GPT-5 Nano ≈ ₩300, GPT-4.1 ≈ ₩3,000, GPT-5.2 ≈ ₩6,000
+          💡 1개국어 번역 예상 비용: 5-Nano ≈₩15 | 4.1-Nano ≈₩20 | 5-Mini ≈₩40 | 4.1-Mini ≈₩50 | 5 ≈₩100 | 4.1 ≈₩150 | 5.1 ≈₩200 | 5.2 ≈₩300
         </div>
       </Section>
 
