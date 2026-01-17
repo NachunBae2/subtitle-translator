@@ -195,37 +195,40 @@ export function SettingsTab() {
           <div className="settings-field">
             <label className="settings-label-sm">번역에 사용할 모델</label>
             <select className="input input-sm" value={model} onChange={(e) => setModel(e.target.value as Model)}>
-              <optgroup label="저렴">
-                <option value="gpt-4.1-nano">GPT-4.1 Nano (최저가)</option>
-                <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
-                <option value="gpt-5-nano">GPT-5 Nano</option>
-                <option value="gpt-5-mini">GPT-5 Mini</option>
+              <optgroup label="저렴 (1M 토큰당 $0.05~$2)">
+                <option value="gpt-5-nano">GPT-5 Nano - $0.05/$0.40 (추천)</option>
+                <option value="gpt-4.1-nano">GPT-4.1 Nano - $0.10/$0.40</option>
+                <option value="gpt-5-mini">GPT-5 Mini - $0.25/$2</option>
+                <option value="gpt-4.1-mini">GPT-4.1 Mini - $0.40/$1.60</option>
               </optgroup>
-              <optgroup label="고성능">
-                <option value="gpt-4.1">GPT-4.1</option>
-                <option value="gpt-5">GPT-5</option>
-                <option value="gpt-5.1">GPT-5.1</option>
-                <option value="gpt-5.2">GPT-5.2</option>
+              <optgroup label="고성능 (1M 토큰당 $1.25~$15)">
+                <option value="gpt-5">GPT-5 - $1.25/$10</option>
+                <option value="gpt-4.1">GPT-4.1 - $2/$8</option>
+                <option value="gpt-5.1">GPT-5.1 - $3/$15</option>
+                <option value="gpt-5.2">GPT-5.2 - $5/$20 (최고 품질)</option>
               </optgroup>
             </select>
           </div>
           <div className="settings-field">
             <label className="settings-label-sm">시스템 설정용 모델</label>
             <select className="input input-sm" value={multiLangModel} onChange={(e) => setMultiLangModel(e.target.value as MultiLangModel)}>
-              <optgroup label="저렴">
-                <option value="gpt-4.1-nano">GPT-4.1 Nano (최저가)</option>
-                <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
-                <option value="gpt-5-nano">GPT-5 Nano</option>
-                <option value="gpt-5-mini">GPT-5 Mini</option>
+              <optgroup label="저렴 (추천)">
+                <option value="gpt-5-nano">GPT-5 Nano - $0.05/$0.40</option>
+                <option value="gpt-4.1-nano">GPT-4.1 Nano - $0.10/$0.40</option>
+                <option value="gpt-5-mini">GPT-5 Mini - $0.25/$2</option>
+                <option value="gpt-4.1-mini">GPT-4.1 Mini - $0.40/$1.60</option>
               </optgroup>
-              <optgroup label="고성능">
-                <option value="gpt-4.1">GPT-4.1</option>
-                <option value="gpt-5">GPT-5</option>
-                <option value="gpt-5.1">GPT-5.1</option>
-                <option value="gpt-5.2">GPT-5.2</option>
+              <optgroup label="고성능 (불필요)">
+                <option value="gpt-5">GPT-5 - $1.25/$10</option>
+                <option value="gpt-4.1">GPT-4.1 - $2/$8</option>
+                <option value="gpt-5.1">GPT-5.1 - $3/$15</option>
+                <option value="gpt-5.2">GPT-5.2 - $5/$20</option>
               </optgroup>
             </select>
           </div>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.5 }}>
+          💡 가격: 입력/출력 (1M 토큰당). 20개국어 번역 기준: GPT-5 Nano ≈ ₩300, GPT-4.1 ≈ ₩3,000, GPT-5.2 ≈ ₩6,000
         </div>
       </Section>
 
