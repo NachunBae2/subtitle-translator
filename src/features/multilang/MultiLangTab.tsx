@@ -279,8 +279,8 @@ export function MultiLangTab() {
       // Electron: 자동으로 파일 저장
       if (isElectron() && outputFolder) {
         setStatus('processing', '파일 저장 중...');
-        const baseName = originalFileName || 'subtitle';
         const currentProject = getCurrentProject();
+        const baseName = currentProject?.name?.replace(/\.(srt|txt)$/i, '') || originalFileName || 'subtitle';
         const filesToSave = [
           // 한글 원본
           ...(currentProject?.koreanSRT ? [{ fileName: `[KOR]_${baseName}.srt`, content: currentProject.koreanSRT }] : []),
@@ -332,11 +332,24 @@ export function MultiLangTab() {
     setLangProgress(resetProgress);
   };
 
-  // 파일명: [언어코드]_[원본파일명].srt
+  // 파일명: [언어코드]_[프로젝트명].srt (프로젝트명 우선, 없으면 originalFileName)
   const getFileName = (langCode: string) => {
     const fileCode = getFileCode(languages, langCode);
-    const baseName = originalFileName || 'subtitle';
+    const project = getCurrentProject();
+    const baseName = project?.name?.replace(/\.(srt|txt)$/i, '') || originalFileName || 'subtitle';
     return `[${fileCode}]_${baseName}.srt`;
+  };
+
+  // 초기화 (모든 번역 결과 삭제)
+  const handleReset = () => {
+    if (confirm('모든 번역 결과를 초기화하시겠습니까?')) {
+      Object.keys(multiLangResults).forEach(langCode => {
+        removeMultiLangResult(langCode);
+      });
+      setViewingLang('');
+      setLangProgress({});
+      setStatus('idle', '초기화 완료');
+    }
   };
 
   const handleDownload = (langCode: string) => {
@@ -355,8 +368,8 @@ export function MultiLangTab() {
   };
 
   const handleDownloadAll = async () => {
-    const baseName = originalFileName || 'subtitle';
     const project = getCurrentProject();
+    const baseName = project?.name?.replace(/\.(srt|txt)$/i, '') || originalFileName || 'subtitle';
     // 한글 + 영어 + 다국어 모두 포함
     const files = [
       // 한글 원본
@@ -616,13 +629,21 @@ export function MultiLangTab() {
               <h2 className="card-title">번역 결과</h2>
               <p className="card-subtitle">{Object.keys(multiLangResults).length}개 언어 번역 완료</p>
             </div>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={handleDownloadAll}
-              style={{ marginLeft: 'auto' }}
-            >
-              📥 전체 다운로드
-            </button>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleDownloadAll}
+              >
+                📥 전체 다운로드
+              </button>
+              <button
+                className="btn btn-sm"
+                onClick={handleReset}
+                style={{ background: 'var(--color-error-100)', color: 'var(--color-error-600)' }}
+              >
+                🗑️ 초기화
+              </button>
+            </div>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {/* Language list */}
