@@ -1004,7 +1004,48 @@ Return ONLY a JSON object:
   }
 }
 
-// 사전 용어 일괄 번역 (영어 → 타겟 언어)
+// 단일 용어 번역 (내부용)
+async function translateSingleTerm(
+  client: OpenAI,
+  term: { korean: string; english: string },
+  targetLangName: string,
+  model: string,
+  signal?: AbortSignal
+): Promise<{ korean: string; translation: string } | null> {
+  const systemPrompt = `You are a specialized terminology translator for crafting/knitting/crochet content.
+
+## Task
+Translate this English term to ${targetLangName}: "${term.english}"
+(Korean original: ${term.korean})
+
+## Rules
+1. Return ONLY the translated term, nothing else
+2. Keep the translation natural in ${targetLangName}
+3. If no direct equivalent exists, use the most commonly used expression`;
+
+  try {
+    const response = await client.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Translate: "${term.english}"` },
+      ],
+      temperature: 0.3,
+      max_completion_tokens: 100,
+    }, { signal });
+
+    const translation = response.choices[0]?.message?.content?.trim() || '';
+    if (translation) {
+      return { korean: term.korean, translation };
+    }
+    return null;
+  } catch (error) {
+    console.error(`🔴 [translateSingleTerm] 실패 (${term.korean}):`, error);
+    return null;
+  }
+}
+
+// 사전 용어 일괄 번역 (영어 → 타겟 언어) - 개별 병렬 호출
 export async function translateDictionaryTerms(
   apiKey: string,
   terms: Array<{ korean: string; english: string }>,
@@ -1017,70 +1058,37 @@ export async function translateDictionaryTerms(
   console.log('📝 [translateDictionaryTerms] 시작, 용어 수:', terms.length, '타겟:', targetLang);
 
   const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-
-  // 언어 이름이 없으면 코드 자체를 사용
   const targetLangName = LANGUAGE_NAMES[targetLang as Language] || targetLang;
 
-  // 용어 목록을 JSON 형식으로 전달
-  const termsForPrompt = terms.map((t, i) => `${i + 1}. "${t.english}" (Korean: ${t.korean})`).join('\n');
+  // 모든 용어를 병렬로 번역 (동시 실행 제한: 10개)
+  const CONCURRENCY = 10;
+  const results: Array<{ korean: string; translation: string }> = [];
 
-  const systemPrompt = `You are a specialized terminology translator for crafting/knitting/crochet content.
-
-## Task
-Translate the following English terms to ${targetLangName}. These are technical terms used in crafting tutorials.
-
-## Terms to translate:
-${termsForPrompt}
-
-## Output Format
-Return ONLY a JSON array with translations:
-[
-  {"index": 1, "translation": "translated term"},
-  {"index": 2, "translation": "translated term"},
-  ...
-]
-
-## Rules
-1. Translate technical terms accurately for the crafting context
-2. Keep translations natural in ${targetLangName}
-3. If a term doesn't have a direct equivalent, use the most commonly used expression in ${targetLangName}
-4. Return ONLY the JSON array, no explanations`;
-
-  try {
-    const response = await client.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Please translate the terms listed above.' },
-      ],
-      temperature: 0.3,
-      max_completion_tokens: 2000,
-      response_format: { type: 'json_object' },
-    }, { signal });
-
-    const content = response.choices[0]?.message?.content || '{}';
-
-    console.log('📝 [translateDictionaryTerms] API 응답:', content.substring(0, 200));
-
-    try {
-      const parsed = JSON.parse(content);
-      const translations = Array.isArray(parsed) ? parsed : parsed.translations || [];
-
-      const result = translations.map((t: { index: number; translation: string }) => ({
-        korean: terms[t.index - 1]?.korean || '',
-        translation: t.translation,
-      })).filter((t: { korean: string; translation: string }) => t.korean && t.translation);
-
-      console.log('📝 [translateDictionaryTerms] 결과:', result.length, '개');
-      return result;
-    } catch (e) {
-      console.error('🔴 [translateDictionaryTerms] JSON 파싱 에러:', content, e);
-      return [];
+  for (let i = 0; i < terms.length; i += CONCURRENCY) {
+    // 취소 확인
+    if (signal?.aborted) {
+      console.log('📝 [translateDictionaryTerms] 취소됨');
+      break;
     }
-  } catch (error) {
-    console.error('🔴 [translateDictionaryTerms] API 에러:', error);
-    return [];
+
+    const batch = terms.slice(i, i + CONCURRENCY);
+    console.log(`📝 [translateDictionaryTerms] 배치 ${Math.floor(i / CONCURRENCY) + 1}/${Math.ceil(terms.length / CONCURRENCY)} 처리 중...`);
+
+    const batchPromises = batch.map(term =>
+      translateSingleTerm(client, term, targetLangName, model, signal)
+    );
+
+    const batchResults = await Promise.all(batchPromises);
+
+    for (const result of batchResults) {
+      if (result) {
+        results.push(result);
+      }
+    }
   }
+
+  console.log('📝 [translateDictionaryTerms] 완료, 결과:', results.length, '개');
+  return results;
 }
 
 // ========== 국가별 댓글 시뮬레이션 ==========

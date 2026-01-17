@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -22,6 +22,13 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // F12 또는 Cmd+Option+I로 개발자 도구 열기 (프로덕션에서도)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || (input.meta && input.alt && input.key === 'i')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
 }
 
 app.whenReady().then(createWindow);

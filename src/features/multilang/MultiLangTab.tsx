@@ -125,6 +125,11 @@ export function MultiLangTab() {
             const entriesNeedingTranslation = getEntriesNeedingTranslation(langCode);
             const memesNeedingTranslation = getMemesNeedingTranslation(langCode);
 
+            console.log(`📚 [Terminology Auto] ${langCode}: 번역 필요한 용어 ${entriesNeedingTranslation.length}개, 밈 ${memesNeedingTranslation.length}개`);
+            if (entriesNeedingTranslation.length > 0) {
+              console.log(`📚 [Terminology Auto] 첫 번째 항목:`, entriesNeedingTranslation[0]);
+            }
+
             if (entriesNeedingTranslation.length > 0 || memesNeedingTranslation.length > 0) {
               setStatus('processing', `[${i + 1}/${selectedLanguages.length}] ${langName}: 용어 ${entriesNeedingTranslation.length}개 + 밈 ${memesNeedingTranslation.length}개 번역 중...`);
 
@@ -139,11 +144,13 @@ export function MultiLangTab() {
                 );
                 // Terminology 탭에 저장
                 if (termResults.length > 0) {
+                  console.log(`📚 [Terminology Auto] ${langCode}: ${termResults.length}개 용어 저장 중...`, termResults);
                   bulkUpdateEntryTranslations(termResults.map(r => ({
                     korean: r.korean,
                     langCode,
                     translation: r.translation,
                   })));
+                  console.log(`📚 [Terminology Auto] ${langCode}: 저장 완료!`);
                 }
               }
 
