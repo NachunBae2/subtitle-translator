@@ -13,7 +13,7 @@ import { isElectron, saveFiles, selectFolder } from '../../lib/fileSystem';
 
 export function MultiLangTab() {
   const { englishBlocks, selectedLanguages, multiLangResults, toggleLanguage, setMultiLangResult, removeMultiLangResult, originalFileName } = useTranslateStore();
-  const { apiKey, multiLangModel, outputFolder } = useSettingsStore();
+  const { apiKey, model, outputFolder } = useSettingsStore();
   const { getActiveTermsFromEnglish, getActiveMemesFromEnglish, getEntriesNeedingTranslation, getMemesNeedingTranslation, bulkUpdateEntryTranslations, bulkUpdateMemeTranslations } = useDictionaryStore();
   const { setStatus, setProgress, progress, statusMessage, isMultiLangTranslating, setIsMultiLangTranslating, createAbortController, cancelTranslation } = useAppStore();
   const { languages, getEnabled, addCustomLanguage } = useLanguageStore();
@@ -192,13 +192,13 @@ export function MultiLangTab() {
               setStatus('processing', `[${i + 1}/${selectedLanguages.length}] ${langName}: ${termCount}개 용어, ${ruleCount}개 규칙 적용`);
             }
 
-            // 청크 병렬 번역 (다국어는 고품질 모델 사용)
-            console.log('📝 [MultiLang] translateFull 호출 시작, 모델:', multiLangModel, '타겟:', langCode);
+            // 청크 병렬 번역 (번역용 모델 사용)
+            console.log('📝 [MultiLang] translateFull 호출 시작, 모델:', model, '타겟:', langCode);
             const results = await translateFull(
               chunkTexts,
               {
                 apiKey,
-                model: multiLangModel,
+                model,
                 terminology,
                 targetLang: langCode as Language,
                 sourceLang: 'en',

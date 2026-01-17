@@ -210,7 +210,7 @@ export function SettingsTab() {
             </select>
           </div>
           <div className="settings-field">
-            <label className="settings-label-sm">다국어 번역에 사용할 모델</label>
+            <label className="settings-label-sm">시스템 설정용 모델</label>
             <select className="input input-sm" value={multiLangModel} onChange={(e) => setMultiLangModel(e.target.value as MultiLangModel)}>
               <optgroup label="저렴">
                 <option value="gpt-4.1-nano">GPT-4.1 Nano (최저가)</option>
