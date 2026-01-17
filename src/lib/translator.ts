@@ -559,6 +559,151 @@ export async function translateFull(
   }
 }
 
+// 빈 셀 수정을 위한 블록 인터페이스
+export interface SubtitleBlockForFix {
+  index: number;
+  startTime: string;
+  endTime: string;
+  text: string;
+  originalText?: string;  // 원본 한글 텍스트
+}
+
+// 빈 셀 탐지 및 문장 분할 수정 (한→영 번역 전용)
+export async function fixEmptyBlocks(
+  blocks: SubtitleBlockForFix[],
+  apiKey: string,
+  model: string = 'gpt-4.1-mini',
+  onProgress?: (current: number, total: number, message: string) => void
+): Promise<SubtitleBlockForFix[]> {
+  const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+  const result = [...blocks];
+
+  // 빈 셀 찾기
+  const emptyIndices: number[] = [];
+  for (let i = 0; i < result.length; i++) {
+    if (!result[i].text || result[i].text.trim() === '') {
+      emptyIndices.push(i);
+    }
+  }
+
+  if (emptyIndices.length === 0) {
+    console.log('✅ 빈 셀 없음 - 수정 불필요');
+    return result;
+  }
+
+  console.log(`🔍 빈 셀 ${emptyIndices.length}개 발견: 인덱스 ${emptyIndices.join(', ')}`);
+  onProgress?.(0, emptyIndices.length, `빈 셀 ${emptyIndices.length}개 수정 중...`);
+
+  // 각 빈 셀에 대해 인접 블록 확인 및 분할
+  let fixed = 0;
+  for (const emptyIdx of emptyIndices) {
+    // 이전/다음 블록 확인
+    const prevIdx = emptyIdx - 1;
+    const nextIdx = emptyIdx + 1;
+
+    const prevBlock = prevIdx >= 0 ? result[prevIdx] : null;
+    const nextBlock = nextIdx < result.length ? result[nextIdx] : null;
+
+    // 원본 텍스트들 수집 (빈 셀 + 인접 블록)
+    const emptyOriginal = result[emptyIdx].originalText || '';
+    const prevOriginal = prevBlock?.originalText || '';
+    const nextOriginal = nextBlock?.originalText || '';
+
+    // 이전 블록의 텍스트가 길거나, 원본 비교시 분할이 필요한 경우
+    let sourceBlock: SubtitleBlockForFix | null = null;
+    let sourceIdx: number = -1;
+    let splitPosition: 'before' | 'after' = 'after';
+
+    // 이전 블록 체크: 텍스트가 있고, 원본 대비 너무 길거나 두 문장이 합쳐진 것 같으면
+    if (prevBlock && prevBlock.text && prevBlock.text.length > 30) {
+      sourceBlock = prevBlock;
+      sourceIdx = prevIdx;
+      splitPosition = 'after';
+    }
+    // 다음 블록 체크
+    else if (nextBlock && nextBlock.text && nextBlock.text.length > 30) {
+      sourceBlock = nextBlock;
+      sourceIdx = nextIdx;
+      splitPosition = 'before';
+    }
+
+    if (!sourceBlock) {
+      console.log(`⚠️ 블록 ${emptyIdx}: 분할할 인접 블록 없음`);
+      continue;
+    }
+
+    // GPT에게 문장 분할 요청
+    try {
+      const response = await client.chat.completions.create({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: `You are a subtitle text splitter.
+
+## Task
+The translation merged two subtitle lines into one. Split the text back into two parts.
+
+## Input
+- Combined English text (needs to be split)
+- Original Korean texts for reference (two separate lines)
+
+## Rules
+1. Split the English text into TWO parts that align with the original Korean lines
+2. Each part should be a complete, natural sentence
+3. Maintain the original meaning
+4. Return ONLY JSON: {"part1": "first part", "part2": "second part"}
+
+## Example
+Combined: "Hello everyone, today we'll learn about cooking."
+Korean 1: "안녕하세요 여러분"
+Korean 2: "오늘은 요리에 대해 배워볼게요"
+Output: {"part1": "Hello everyone,", "part2": "today we'll learn about cooking."}`,
+          },
+          {
+            role: 'user',
+            content: `Combined English: "${sourceBlock.text}"
+
+Korean line 1 (${splitPosition === 'after' ? 'source' : 'empty'}): "${splitPosition === 'after' ? prevOriginal : emptyOriginal}"
+Korean line 2 (${splitPosition === 'after' ? 'empty' : 'source'}): "${splitPosition === 'after' ? emptyOriginal : nextOriginal}"
+
+Split this into two parts.`,
+          },
+        ],
+        temperature: 0.2,
+        max_completion_tokens: 300,
+        response_format: { type: 'json_object' },
+      });
+
+      const content = response.choices[0]?.message?.content || '{}';
+      const parsed = JSON.parse(content);
+
+      if (parsed.part1 && parsed.part2) {
+        if (splitPosition === 'after') {
+          // 이전 블록에서 분할: part1은 이전 블록, part2는 현재 빈 셀
+          result[sourceIdx].text = parsed.part1.trim();
+          result[emptyIdx].text = parsed.part2.trim();
+        } else {
+          // 다음 블록에서 분할: part1은 현재 빈 셀, part2는 다음 블록
+          result[emptyIdx].text = parsed.part1.trim();
+          result[sourceIdx].text = parsed.part2.trim();
+        }
+        fixed++;
+        console.log(`✅ 블록 ${emptyIdx}: 분할 완료`);
+      }
+    } catch (error) {
+      console.error(`❌ 블록 ${emptyIdx} 분할 실패:`, error);
+    }
+
+    onProgress?.(fixed, emptyIndices.length, `빈 셀 수정 중... (${fixed}/${emptyIndices.length})`);
+  }
+
+  console.log(`🎉 빈 셀 수정 완료: ${fixed}/${emptyIndices.length}개 수정됨`);
+  onProgress?.(emptyIndices.length, emptyIndices.length, `빈 셀 ${fixed}개 수정 완료`);
+
+  return result;
+}
+
 // GPT 대화 메시지 타입
 export interface GptMessage {
   role: 'user' | 'assistant';

@@ -94,9 +94,14 @@ export const useTranslateStore = create<TranslateState>()(
         const newBlocks = englishBlocks.map((b) =>
           b.id === id ? { ...b, text } : b
         );
+        // englishRaw도 함께 업데이트 (실시간 동기화)
+        const newEnglishRaw = newBlocks.map((b) =>
+          `${b.id}\n${b.startTime} --> ${b.endTime}\n${b.text}`
+        ).join('\n\n');
         set({
           englishBlocks: newBlocks,
-          reviewStatus: { ...reviewStatus, [id]: 'edited' },
+          englishRaw: newEnglishRaw,
+          reviewStatus: { ...reviewStatus, [id]: 'pending' },
         });
       },
 

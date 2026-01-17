@@ -52,3 +52,36 @@ export const downloadFile = (content: string, fileName: string): void => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
+
+// 파일 존재 확인 (여러 파일)
+export const checkFilesExist = async (
+  folderPath: string,
+  fileNames: string[]
+): Promise<{ success: boolean; existingFiles: string[]; error?: string }> => {
+  if (!isElectron()) {
+    return { success: true, existingFiles: [] };
+  }
+  return window.electronAPI!.checkFilesExist(folderPath, fileNames);
+};
+
+// 파일 삭제
+export const deleteFile = async (
+  folderPath: string,
+  fileName: string
+): Promise<{ success: boolean; error?: string }> => {
+  if (!isElectron()) {
+    console.warn('Not in Electron environment');
+    return { success: false, error: 'Not in Electron environment' };
+  }
+  return window.electronAPI!.deleteFile(folderPath, fileName);
+};
+
+// 폴더 내 파일 목록
+export const listFolderFiles = async (
+  folderPath: string
+): Promise<{ success: boolean; files: string[]; error?: string }> => {
+  if (!isElectron()) {
+    return { success: true, files: [] };
+  }
+  return window.electronAPI!.listFolderFiles(folderPath);
+};

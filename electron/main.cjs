@@ -84,3 +84,49 @@ ipcMain.handle('ensure-folder', async (event, folderPath) => {
     return { success: false, error: error.message };
   }
 });
+
+// IPC: 파일 존재 확인 (여러 파일)
+ipcMain.handle('check-files-exist', async (event, { folderPath, fileNames }) => {
+  try {
+    const existingFiles = [];
+    for (const fileName of fileNames) {
+      const filePath = path.join(folderPath, fileName);
+      if (fs.existsSync(filePath)) {
+        existingFiles.push(fileName);
+      }
+    }
+    return { success: true, existingFiles };
+  } catch (error) {
+    return { success: false, error: error.message, existingFiles: [] };
+  }
+});
+
+// IPC: 파일 삭제
+ipcMain.handle('delete-file', async (event, { folderPath, fileName }) => {
+  try {
+    const filePath = path.join(folderPath, fileName);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      return { success: true };
+    }
+    return { success: false, error: '파일이 존재하지 않습니다.' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC: 폴더 내 파일 목록
+ipcMain.handle('list-folder-files', async (event, folderPath) => {
+  try {
+    if (!fs.existsSync(folderPath)) {
+      return { success: true, files: [] };
+    }
+    const files = fs.readdirSync(folderPath).filter(file => {
+      const filePath = path.join(folderPath, file);
+      return fs.statSync(filePath).isFile();
+    });
+    return { success: true, files };
+  } catch (error) {
+    return { success: false, error: error.message, files: [] };
+  }
+});

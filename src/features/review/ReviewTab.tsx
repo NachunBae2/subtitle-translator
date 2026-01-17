@@ -18,7 +18,7 @@ export function ReviewTab() {
     _hasHydrated,
   } = useTranslateStore();
   const { setActiveTab } = useAppStore();
-  const { getCurrentProject, markEnglishReviewed } = useProjectStore();
+  const { getCurrentProject, markEnglishReviewed, setEnglishSRT } = useProjectStore();
   const { addTranslation } = useStatsStore();
 
   const [editing, setEditing] = useState<EditTarget>(null);
@@ -37,7 +37,20 @@ export function ReviewTab() {
 
     if (editing.type === 'english') {
       updateEnglishBlock(editing.id, editText);
-      setReviewStatus(editing.id, 'edited');
+      // 수정하면 검수중 상태로 돌아감
+      setReviewStatus(editing.id, 'pending');
+
+      // 프로젝트 영어 SRT 실시간 동기화
+      const project = getCurrentProject();
+      if (project) {
+        const updatedBlocks = englishBlocks.map((b) =>
+          b.id === editing.id ? { ...b, text: editText } : b
+        );
+        const newEnglishSRT = updatedBlocks.map((b) =>
+          `${b.id}\n${b.startTime} --> ${b.endTime}\n${b.text}`
+        ).join('\n\n');
+        setEnglishSRT(project.id, newEnglishSRT);
+      }
     } else {
       // 한글은 로컬에만 저장 (나중에 스토어 업데이트 함수 추가 가능)
       setLocalKoreanEdits(prev => ({ ...prev, [editing.id]: editText }));
@@ -102,22 +115,36 @@ export function ReviewTab() {
     );
   }
 
-  const pendingCount = Object.values(reviewStatus).filter((s) => s === 'pending').length;
+  // 검수중 (pending/edited) 카운트 - 검수완료되지 않은 모든 항목
+  const reviewingCount = Object.values(reviewStatus).filter((s) => s !== 'approved').length;
+
+  // 빈 행 감지
+  const emptyBlocks = englishBlocks.filter((b) => !b.text || b.text.trim() === '');
+  const emptyCount = emptyBlocks.length;
 
   return (
     <div className="review-container">
       {/* 헤더 */}
       <div className="review-header">
         <span className="review-header-info">
-          전체 {koreanBlocks.length}개 | 대기 {pendingCount}개
+          전체 {koreanBlocks.length}개 | 검수중 {reviewingCount}개
+          {emptyCount > 0 && (
+            <span style={{
+              marginLeft: '8px',
+              color: 'var(--color-error-500)',
+              fontWeight: 600
+            }}>
+              ⚠️ 빈 행 {emptyCount}개
+            </span>
+          )}
         </span>
         <div className="review-controls">
           <button
             className="btn btn-sm btn-secondary"
             onClick={approveAll}
-            disabled={pendingCount === 0}
+            disabled={reviewingCount === 0}
           >
-            전체 승인
+            전체 검수완료
           </button>
           <button
             className="btn btn-sm btn-primary"
@@ -125,6 +152,11 @@ export function ReviewTab() {
               approveAll();
               const project = getCurrentProject();
               if (project) {
+                // 최신 englishSRT 동기화
+                const latestEnglishSRT = englishBlocks.map((b) =>
+                  `${b.id}\n${b.startTime} --> ${b.endTime}\n${b.text}`
+                ).join('\n\n');
+                setEnglishSRT(project.id, latestEnglishSRT);
                 markEnglishReviewed(project.id);
                 // 통계 기록: 문장 수 = 블록 수, 단어 수 = 영어 텍스트 단어 계산
                 const totalWords = englishBlocks.reduce((sum, b) => sum + b.text.split(/\s+/).filter(Boolean).length, 0);
@@ -246,17 +278,21 @@ export function ReviewTab() {
 
                   {/* 상태 */}
                   <td className="col-action">
-                    {status === 'pending' ? (
+                    {status === 'approved' ? (
+                      <button
+                        className="review-status-approved"
+                        onClick={() => setReviewStatus(en.id, 'pending')}
+                        title="클릭하여 검수중으로 변경"
+                      >
+                        ✓ 검수완료
+                      </button>
+                    ) : (
                       <button
                         className="review-status-pending"
                         onClick={() => setReviewStatus(en.id, 'approved')}
                       >
-                        대기
+                        검수중
                       </button>
-                    ) : status === 'approved' ? (
-                      <span className="review-status-approved">✓ 승인</span>
-                    ) : (
-                      <span className="review-status-edited">수정됨</span>
                     )}
                   </td>
                 </tr>

@@ -7,7 +7,7 @@ import { useProjectStore } from '../../stores/useProjectStore';
 import { useFeedbackStore } from '../feedback/FeedbackTab';
 import { parseSRT, SubtitleBlock as SRTBlock, mergeTranslatedChunksWithOriginal } from '../../lib/srt';
 import { createChunks, getChunkSummary } from '../../lib/chunker';
-import { translateFull } from '../../lib/translator';
+import { translateFull, fixEmptyBlocks } from '../../lib/translator';
 
 export function TranslateTab() {
   const { setStatus, setProgress, setActiveTab, isTranslating, setIsTranslating, createAbortController, cancelTranslation } = useAppStore();
@@ -199,7 +199,39 @@ export function TranslateTab() {
       );
 
       // 결과 합치기 (원본 블록 구조 유지 - 1:1 매핑)
-      const englishSRTBlocks = mergeTranslatedChunksWithOriginal(srtBlocks, results);
+      let englishSRTBlocks = mergeTranslatedChunksWithOriginal(srtBlocks, results);
+
+      // 빈 셀 탐지 및 수정 (원본 한글 텍스트 포함)
+      const blocksForFix = englishSRTBlocks.map((b, i) => ({
+        index: b.index,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        text: b.text,
+        originalText: srtBlocks[i]?.text || '',  // 원본 한글 텍스트 추가
+      }));
+
+      const hasEmptyBlocks = blocksForFix.some((b) => !b.text || b.text.trim() === '');
+      if (hasEmptyBlocks) {
+        setStatus('processing', '빈 셀 검사 및 수정 중...');
+        const fixedBlocks = await fixEmptyBlocks(
+          blocksForFix,
+          apiKey,
+          model,
+          (_current, _total, message) => {
+            setStatus('processing', message);
+          }
+        );
+        // 수정된 블록 적용 (원본 블록의 startMs, endMs 유지)
+        englishSRTBlocks = fixedBlocks.map((b, i) => ({
+          index: b.index,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          startMs: englishSRTBlocks[i].startMs,
+          endMs: englishSRTBlocks[i].endMs,
+          text: b.text,
+        }));
+      }
+
       const englishBlocks = convertToSubtitleBlocks(englishSRTBlocks);
 
       // 영어 SRT 텍스트 생성

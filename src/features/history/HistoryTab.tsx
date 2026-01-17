@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { useProjectStore, Project } from '../../stores/useProjectStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { isElectron, saveFiles, selectFolder } from '../../lib/fileSystem';
+import { isElectron, saveFiles, selectFolder, checkFilesExist, deleteFile, listFolderFiles } from '../../lib/fileSystem';
+
+interface OverwriteDialogState {
+  isOpen: boolean;
+  existingFiles: string[];
+  allFiles: { fileName: string; content: string }[];
+  targetFolder: string;
+  onConfirm: () => void;
+}
 
 export function HistoryTab() {
   const { projects, deleteProject, clearAllProjects, updateProjectName } = useProjectStore();
@@ -9,6 +17,14 @@ export function HistoryTab() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [overwriteDialog, setOverwriteDialog] = useState<OverwriteDialogState>({
+    isOpen: false,
+    existingFiles: [],
+    allFiles: [],
+    targetFolder: '',
+    onConfirm: () => {},
+  });
+  const [folderFiles, setFolderFiles] = useState<Record<string, string[]>>({});
 
   const handleSelectFolder = async () => {
     if (!isElectron()) {
@@ -20,7 +36,11 @@ export function HistoryTab() {
   };
 
   const toggleExpand = (projectId: string) => {
-    setExpandedProjects(prev => {
+    const project = projects.find((p) => p.id === projectId);
+    if (project?.boundFolder) {
+      loadFolderFiles(project.boundFolder);
+    }
+    setExpandedProjects((prev) => {
       const next = new Set(prev);
       if (next.has(projectId)) {
         next.delete(projectId);
@@ -37,13 +57,44 @@ export function HistoryTab() {
       ? `[ENG]_${baseName}.srt`
       : `[${fileType}]_${baseName}.srt`;
 
-    const targetFolder = project.boundFolder || outputFolder;
+    let targetFolder = project.boundFolder || outputFolder;
 
     if (isElectron() && targetFolder) {
-      await saveFiles(targetFolder, [{ fileName, content }]);
+      const checkResult = await checkFilesExist(targetFolder, [fileName]);
+      if (checkResult.existingFiles.length > 0) {
+        setOverwriteDialog({
+          isOpen: true,
+          existingFiles: checkResult.existingFiles,
+          allFiles: [{ fileName, content }],
+          targetFolder,
+          onConfirm: () => {
+            executeSaveFiles(targetFolder, [{ fileName, content }]);
+            setOverwriteDialog((prev) => ({ ...prev, isOpen: false }));
+          },
+        });
+      } else {
+        await executeSaveFiles(targetFolder, [{ fileName, content }]);
+      }
     } else if (isElectron()) {
       const folder = await selectFolder();
-      if (folder) await saveFiles(folder, [{ fileName, content }]);
+      if (folder) {
+        targetFolder = folder;
+        const checkResult = await checkFilesExist(folder, [fileName]);
+        if (checkResult.existingFiles.length > 0) {
+          setOverwriteDialog({
+            isOpen: true,
+            existingFiles: checkResult.existingFiles,
+            allFiles: [{ fileName, content }],
+            targetFolder: folder,
+            onConfirm: () => {
+              executeSaveFiles(folder, [{ fileName, content }]);
+              setOverwriteDialog((prev) => ({ ...prev, isOpen: false }));
+            },
+          });
+        } else {
+          await executeSaveFiles(folder, [{ fileName, content }]);
+        }
+      }
     } else {
       const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -52,6 +103,42 @@ export function HistoryTab() {
       a.download = fileName;
       a.click();
       URL.revokeObjectURL(url);
+    }
+  };
+
+  // 파일 삭제 핸들러
+  const handleDeleteFile = async (folderPath: string, fileName: string) => {
+    if (!confirm(`"${fileName}" 파일을 삭제하시겠습니까?`)) return;
+    const result = await deleteFile(folderPath, fileName);
+    if (result.success) {
+      // 폴더 파일 목록 갱신
+      const listResult = await listFolderFiles(folderPath);
+      if (listResult.success) {
+        setFolderFiles((prev) => ({ ...prev, [folderPath]: listResult.files }));
+      }
+      alert('파일이 삭제되었습니다.');
+    } else {
+      alert(`삭제 실패: ${result.error}`);
+    }
+  };
+
+  // 폴더 파일 목록 로드
+  const loadFolderFiles = async (folderPath: string) => {
+    if (!folderPath || folderFiles[folderPath]) return;
+    const result = await listFolderFiles(folderPath);
+    if (result.success) {
+      setFolderFiles((prev) => ({ ...prev, [folderPath]: result.files }));
+    }
+  };
+
+  // 실제 파일 저장 실행
+  const executeSaveFiles = async (folder: string, files: { fileName: string; content: string }[]) => {
+    await saveFiles(folder, files);
+    alert(`${files.length}개 파일 저장됨`);
+    // 폴더 파일 목록 갱신
+    const result = await listFolderFiles(folder);
+    if (result.success) {
+      setFolderFiles((prev) => ({ ...prev, [folder]: result.files }));
     }
   };
 
@@ -68,16 +155,50 @@ export function HistoryTab() {
 
     if (files.length === 0) return;
 
-    const targetFolder = project.boundFolder || outputFolder;
+    let targetFolder = project.boundFolder || outputFolder;
 
     if (isElectron() && targetFolder) {
-      await saveFiles(targetFolder, files);
-      alert(`${files.length}개 파일 저장됨`);
+      // 파일 존재 여부 확인
+      const fileNames = files.map((f) => f.fileName);
+      const checkResult = await checkFilesExist(targetFolder, fileNames);
+
+      if (checkResult.existingFiles.length > 0) {
+        // 덮어쓰기 확인 다이얼로그 표시
+        setOverwriteDialog({
+          isOpen: true,
+          existingFiles: checkResult.existingFiles,
+          allFiles: files,
+          targetFolder,
+          onConfirm: () => {
+            executeSaveFiles(targetFolder, files);
+            setOverwriteDialog((prev) => ({ ...prev, isOpen: false }));
+          },
+        });
+      } else {
+        await executeSaveFiles(targetFolder, files);
+      }
     } else if (isElectron()) {
       const folder = await selectFolder();
       if (folder) {
-        await saveFiles(folder, files);
-        alert(`${files.length}개 파일 저장됨`);
+        targetFolder = folder;
+        // 파일 존재 여부 확인
+        const fileNames = files.map((f) => f.fileName);
+        const checkResult = await checkFilesExist(folder, fileNames);
+
+        if (checkResult.existingFiles.length > 0) {
+          setOverwriteDialog({
+            isOpen: true,
+            existingFiles: checkResult.existingFiles,
+            allFiles: files,
+            targetFolder: folder,
+            onConfirm: () => {
+              executeSaveFiles(folder, files);
+              setOverwriteDialog((prev) => ({ ...prev, isOpen: false }));
+            },
+          });
+        } else {
+          await executeSaveFiles(folder, files);
+        }
       }
     } else {
       for (const file of files) {
@@ -88,7 +209,7 @@ export function HistoryTab() {
         a.download = file.fileName;
         a.click();
         URL.revokeObjectURL(url);
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 200));
       }
     }
   };
@@ -106,8 +227,107 @@ export function HistoryTab() {
     return new Date(Math.max(...dates));
   };
 
+  // 다른 이름으로 저장 핸들러
+  const handleSaveAsDifferentName = async () => {
+    const folder = await selectFolder();
+    if (folder && folder !== overwriteDialog.targetFolder) {
+      await executeSaveFiles(folder, overwriteDialog.allFiles);
+      setOverwriteDialog((prev) => ({ ...prev, isOpen: false }));
+    } else if (folder) {
+      alert('다른 폴더를 선택해주세요.');
+    }
+  };
+
   return (
     <div style={{ maxWidth: 650, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+      {/* 덮어쓰기 확인 다이얼로그 */}
+      {overwriteDialog.isOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: '#1a1a28',
+            border: '1px solid #2a2a3c',
+            borderRadius: 12,
+            padding: 24,
+            maxWidth: 420,
+            width: '90%',
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#ffffff', marginBottom: 12 }}>
+              ⚠️ 파일이 이미 존재합니다
+            </div>
+            <div style={{ fontSize: 13, color: '#aaaacc', marginBottom: 16 }}>
+              다음 파일이 이미 존재합니다. 덮어쓰시겠습니까?
+            </div>
+            <div style={{
+              background: '#0d0d14',
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 16,
+              maxHeight: 120,
+              overflowY: 'auto',
+            }}>
+              {overwriteDialog.existingFiles.map((file) => (
+                <div key={file} style={{ fontSize: 12, color: '#fbbf24', marginBottom: 4 }}>
+                  📄 {file}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setOverwriteDialog((prev) => ({ ...prev, isOpen: false }))}
+                style={{
+                  fontSize: 12,
+                  padding: '8px 16px',
+                  background: '#2a2a3c',
+                  color: '#aaaacc',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSaveAsDifferentName}
+                style={{
+                  fontSize: 12,
+                  padding: '8px 16px',
+                  background: '#374151',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                다른 폴더 선택
+              </button>
+              <button
+                onClick={overwriteDialog.onConfirm}
+                style={{
+                  fontSize: 12,
+                  padding: '8px 16px',
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                덮어쓰기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 상위 폴더 경로 바 */}
       <div
         onClick={handleSelectFolder}
@@ -427,6 +647,52 @@ export function HistoryTab() {
                         </button>
                       </div>
                     ))}
+
+                    {/* 바인딩된 폴더의 실제 파일 목록 */}
+                    {project.boundFolder && folderFiles[project.boundFolder] && folderFiles[project.boundFolder].length > 0 && (
+                      <>
+                        <div style={{
+                          padding: '8px 14px 8px 48px',
+                          borderTop: '1px solid #2a2a3c',
+                          background: '#12121c',
+                        }}>
+                          <span style={{ fontSize: 11, color: '#666688' }}>
+                            📁 폴더 내 파일 ({folderFiles[project.boundFolder].length}개)
+                          </span>
+                        </div>
+                        {folderFiles[project.boundFolder].map((fileName) => (
+                          <div
+                            key={fileName}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '8px 14px 8px 48px',
+                              borderBottom: '1px solid #1a1a28',
+                              gap: 10,
+                            }}
+                          >
+                            <span style={{ fontSize: 14 }}>📄</span>
+                            <span style={{ flex: 1, fontSize: 12, color: '#888899' }}>
+                              {fileName}
+                            </span>
+                            <button
+                              onClick={() => handleDeleteFile(project.boundFolder!, fileName)}
+                              style={{
+                                fontSize: 10,
+                                padding: '4px 8px',
+                                background: 'rgba(220, 38, 38, 0.2)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(220, 38, 38, 0.3)',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
