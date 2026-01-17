@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
 import { useDictionaryStore } from '../../stores/useDictionaryStore';
-import { PRESETS } from '../../data/presets';
 
 const LANG_NAMES: Record<string, string> = {
   ko: '한국어',
@@ -30,12 +29,10 @@ export function TerminologyTab() {
     toggleDictionary,
     removeEntry,
     updateEntry,
-    loadPreset,
     bulkAddEntries,
     addLanguageColumn,
   } = useDictionaryStore();
 
-  const [selectedDict, setSelectedDict] = useState<string | null>('crochet');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
   const [newDictName, setNewDictName] = useState('');
@@ -46,7 +43,20 @@ export function TerminologyTab() {
   const [thirdLang, setThirdLang] = useState<string>('');  // 제3언어 선택
   const tableRef = useRef<HTMLDivElement>(null);
 
-  const termDictionaries = dictionaries.filter(d => d.category === 'terminology');
+  // 활성화된 사전이 먼저 오도록 정렬
+  const termDictionaries = dictionaries
+    .filter(d => d.category === 'terminology')
+    .sort((a, b) => {
+      const aActive = activeDictionaryIds.includes(a.id);
+      const bActive = activeDictionaryIds.includes(b.id);
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+      return 0;
+    });
+
+  // 기본 선택: 활성화된 사전 또는 첫 번째 사전
+  const defaultSelectedId = termDictionaries.find(d => activeDictionaryIds.includes(d.id))?.id || termDictionaries[0]?.id || null;
+  const [selectedDict, setSelectedDict] = useState<string | null>(defaultSelectedId);
   const selectedDictData = dictionaries.find(d => d.id === selectedDict);
 
   const handleAddDictionary = () => {
@@ -280,59 +290,28 @@ export function TerminologyTab() {
               >
                 {activeDictionaryIds.includes(selectedDictData.id) ? '✓ 활성' : '비활성'}
               </button>
-              {!['knitting', 'crochet'].includes(selectedDictData.id) && (
-                <button
-                  onClick={() => {
-                    if (confirm('삭제?')) {
-                      removeDictionary(selectedDictData.id);
-                      setSelectedDict(null);
-                    }
-                  }}
-                  style={{
-                    fontSize: 11,
-                    padding: '4px 10px',
-                    background: '#12121c',
-                    color: '#ef4444',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                  }}
-                >
-                  삭제
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  if (confirm(`'${selectedDictData.name}' 사전을 삭제하시겠습니까?`)) {
+                    removeDictionary(selectedDictData.id);
+                    setSelectedDict(null);
+                  }
+                }}
+                style={{
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  background: '#12121c',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                삭제
+              </button>
             </div>
           </div>
 
-          {/* 프리셋 로드 */}
-          {['knitting', 'crochet'].includes(selectedDictData.id) && (
-            <div style={{ marginBottom: 12 }}>
-              {PRESETS.filter(p =>
-                (selectedDictData.id === 'knitting' && p.info.id === 'knitting') ||
-                (selectedDictData.id === 'crochet' && p.info.id === 'crochet')
-              ).map((preset) => (
-                <button
-                  key={preset.info.id}
-                  onClick={() => {
-                    const entries = Object.entries(preset.terminology.terms).map(([korean, english]) => ({ korean, english }));
-                    loadPreset(selectedDictData.id, entries);
-                    alert(`${preset.info.name} ${preset.info.termCount}개 추가`);
-                  }}
-                  style={{
-                    fontSize: 11,
-                    padding: '4px 10px',
-                    background: '#12121c',
-                    color: '#aaaacc',
-                    border: '1px solid #2a2a3c',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {preset.info.icon} {preset.info.name} 프리셋 로드
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* 테이블 */}
           <div

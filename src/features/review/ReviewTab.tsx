@@ -3,6 +3,7 @@ import { useTranslateStore } from '../../stores/useTranslateStore';
 import { useAppStore } from '../../stores/useAppStore';
 import { useProjectStore } from '../../stores/useProjectStore';
 import { useStatsStore } from '../../stores/useStatsStore';
+import { isElectron, renameFilesBatch } from '../../lib/fileSystem';
 
 type EditTarget = { id: number; type: 'korean' | 'english' } | null;
 
@@ -18,11 +19,65 @@ export function ReviewTab() {
     _hasHydrated,
   } = useTranslateStore();
   const { setActiveTab } = useAppStore();
-  const { getCurrentProject, markEnglishReviewed, setEnglishSRT } = useProjectStore();
+  const { getCurrentProject, markEnglishReviewed, setEnglishSRT, updateProjectName } = useProjectStore();
   const { addTranslation } = useStatsStore();
 
   const [editing, setEditing] = useState<EditTarget>(null);
   const [editText, setEditText] = useState('');
+  const [editingFileName, setEditingFileName] = useState(false);
+  const [fileNameInput, setFileNameInput] = useState('');
+
+  // 프로젝트 폴더 경로 계산
+  const getProjectFolder = (baseFolder: string, projectName: string) => {
+    const cleanName = projectName.replace(/\.(srt|txt)$/i, '');
+    return `${baseFolder}/${cleanName}`;
+  };
+
+  // 파일명 변경 처리 (파일 rename 포함)
+  const handleFileNameSave = async () => {
+    const project = getCurrentProject();
+    if (!project || !fileNameInput.trim()) {
+      setEditingFileName(false);
+      return;
+    }
+
+    const newName = fileNameInput.trim();
+    const oldBaseName = project.name.replace(/\.(srt|txt)$/i, '');
+    const newBaseName = newName.replace(/\.(srt|txt)$/i, '');
+
+    if (oldBaseName === newBaseName) {
+      setEditingFileName(false);
+      return;
+    }
+
+    // 바인딩된 폴더가 있으면 파일도 rename
+    if (project.boundFolder && isElectron()) {
+      const projectFolder = getProjectFolder(project.boundFolder, project.name);
+      const renames: { oldFileName: string; newFileName: string }[] = [];
+
+      if (project.englishSRT) {
+        renames.push({
+          oldFileName: `[ENG]_${oldBaseName}.srt`,
+          newFileName: `[ENG]_${newBaseName}.srt`,
+        });
+      }
+      renames.push({
+        oldFileName: `[KOR]_${oldBaseName}.srt`,
+        newFileName: `[KOR]_${newBaseName}.srt`,
+      });
+      project.translations.forEach((t) => {
+        renames.push({
+          oldFileName: `[${t.fileCode}]_${oldBaseName}.srt`,
+          newFileName: `[${t.fileCode}]_${newBaseName}.srt`,
+        });
+      });
+
+      await renameFilesBatch(projectFolder, renames);
+    }
+
+    updateProjectName(project.id, newName);
+    setEditingFileName(false);
+  };
 
   // 한글 블록 수정 (로컬에서만, 스토어 업데이트는 나중에 필요하면 추가)
   const [localKoreanEdits, setLocalKoreanEdits] = useState<Record<number, string>>({});
@@ -122,8 +177,70 @@ export function ReviewTab() {
   const emptyBlocks = englishBlocks.filter((b) => !b.text || b.text.trim() === '');
   const emptyCount = emptyBlocks.length;
 
+  const project = getCurrentProject();
+
   return (
     <div className="review-container">
+      {/* 파일명 편집 */}
+      {project && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '12px 16px',
+          marginBottom: 12,
+          background: 'var(--color-bg-secondary)',
+          borderRadius: 8,
+          border: '1px solid var(--color-border)',
+        }}>
+          <span style={{ fontSize: 18 }}>📄</span>
+          {editingFileName ? (
+            <input
+              value={fileNameInput}
+              onChange={(e) => setFileNameInput(e.target.value)}
+              onBlur={handleFileNameSave}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleFileNameSave();
+                if (e.key === 'Escape') setEditingFileName(false);
+              }}
+              autoFocus
+              style={{
+                flex: 1,
+                fontSize: 14,
+                fontWeight: 600,
+                padding: '6px 10px',
+                border: '2px solid var(--color-primary)',
+                borderRadius: 4,
+                outline: 'none',
+                background: 'var(--color-bg-primary)',
+                color: 'var(--color-text-primary)',
+              }}
+            />
+          ) : (
+            <span
+              onClick={() => {
+                setEditingFileName(true);
+                setFileNameInput(project.name.replace(/\.(srt|txt)$/i, ''));
+              }}
+              style={{
+                flex: 1,
+                fontSize: 14,
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                cursor: 'pointer',
+                padding: '6px 0',
+              }}
+              title="클릭하여 파일명 수정"
+            >
+              {project.name.replace(/\.(srt|txt)$/i, '')}
+            </span>
+          )}
+          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+            .srt
+          </span>
+        </div>
+      )}
+
       {/* 헤더 */}
       <div className="review-header">
         <span className="review-header-info">
@@ -150,14 +267,14 @@ export function ReviewTab() {
             className="btn btn-sm btn-primary"
             onClick={() => {
               approveAll();
-              const project = getCurrentProject();
-              if (project) {
+              const currentProject = getCurrentProject();
+              if (currentProject) {
                 // 최신 englishSRT 동기화
                 const latestEnglishSRT = englishBlocks.map((b) =>
                   `${b.id}\n${b.startTime} --> ${b.endTime}\n${b.text}`
                 ).join('\n\n');
-                setEnglishSRT(project.id, latestEnglishSRT);
-                markEnglishReviewed(project.id);
+                setEnglishSRT(currentProject.id, latestEnglishSRT);
+                markEnglishReviewed(currentProject.id);
                 // 통계 기록: 문장 수 = 블록 수, 단어 수 = 영어 텍스트 단어 계산
                 const totalWords = englishBlocks.reduce((sum, b) => sum + b.text.split(/\s+/).filter(Boolean).length, 0);
                 addTranslation(englishBlocks.length, totalWords, 'en');

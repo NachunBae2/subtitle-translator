@@ -2,7 +2,7 @@
   "name": "subtitle-translator",
   "productName": "자막 번역기",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --port 3003",

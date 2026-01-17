@@ -29,21 +29,11 @@ export interface Dictionary {
 // 기본 사전들
 const DEFAULT_DICTIONARIES: Dictionary[] = [
   {
-    id: 'knitting',
-    name: '대바늘',
-    icon: '🧶',
+    id: 'example',
+    name: 'Example',
+    icon: '📖',
     category: 'terminology',
     languages: ['ko', 'en'],  // 기본: 한국어 + 영어
-    entries: [],
-    memes: [],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'crochet',
-    name: '코바늘',
-    icon: '🪡',
-    category: 'terminology',
-    languages: ['ko', 'en'],
     entries: [],
     memes: [],
     createdAt: new Date().toISOString(),

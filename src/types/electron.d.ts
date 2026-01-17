@@ -6,6 +6,8 @@ export interface ElectronAPI {
   checkFilesExist: (folderPath: string, fileNames: string[]) => Promise<{ success: boolean; existingFiles: string[]; error?: string }>;
   deleteFile: (folderPath: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
   listFolderFiles: (folderPath: string) => Promise<{ success: boolean; files: string[]; error?: string }>;
+  renameFile: (folderPath: string, oldFileName: string, newFileName: string) => Promise<{ success: boolean; error?: string }>;
+  renameFilesBatch: (folderPath: string, renames: { oldFileName: string; newFileName: string }[]) => Promise<{ success: boolean; results?: { oldFileName: string; newFileName: string; success: boolean }[]; error?: string }>;
 }
 
 declare global {

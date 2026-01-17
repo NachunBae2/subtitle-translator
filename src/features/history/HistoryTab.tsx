@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useProjectStore, Project } from '../../stores/useProjectStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { isElectron, saveFiles, selectFolder, checkFilesExist, deleteFile, listFolderFiles } from '../../lib/fileSystem';
+import { isElectron, saveFiles, selectFolder, checkFilesExist, deleteFile, listFolderFiles, ensureFolder, renameFilesBatch } from '../../lib/fileSystem';
 
 interface OverwriteDialogState {
   isOpen: boolean;
@@ -26,6 +26,60 @@ export function HistoryTab() {
   });
   const [folderFiles, setFolderFiles] = useState<Record<string, string[]>>({});
 
+  // 프로젝트 폴더 경로 계산 (baseFolder/프로젝트명/)
+  const getProjectFolder = (baseFolder: string, projectName: string) => {
+    const cleanName = projectName.replace(/\.(srt|txt)$/i, '');
+    return `${baseFolder}/${cleanName}`;
+  };
+
+  // 프로젝트명 변경 시 파일도 함께 rename
+  const handleUpdateProjectName = async (project: Project, newName: string) => {
+    const oldBaseName = project.name.replace(/\.(srt|txt)$/i, '');
+    const newBaseName = newName.replace(/\.(srt|txt)$/i, '');
+
+    if (oldBaseName === newBaseName) {
+      updateProjectName(project.id, newName);
+      return;
+    }
+
+    // 바인딩된 폴더가 있고 실제 파일이 있으면 rename
+    if (project.boundFolder && isElectron()) {
+      const projectFolder = getProjectFolder(project.boundFolder, project.name);
+      const renames: { oldFileName: string; newFileName: string }[] = [];
+
+      // 영어 파일
+      if (project.englishSRT) {
+        renames.push({
+          oldFileName: `[ENG]_${oldBaseName}.srt`,
+          newFileName: `[ENG]_${newBaseName}.srt`,
+        });
+      }
+      // 원본 한국어
+      renames.push({
+        oldFileName: `[KOR]_${oldBaseName}.srt`,
+        newFileName: `[KOR]_${newBaseName}.srt`,
+      });
+      // 다국어
+      project.translations.forEach((t) => {
+        renames.push({
+          oldFileName: `[${t.fileCode}]_${oldBaseName}.srt`,
+          newFileName: `[${t.fileCode}]_${newBaseName}.srt`,
+        });
+      });
+
+      // 일괄 rename 실행
+      await renameFilesBatch(projectFolder, renames);
+
+      // 폴더 파일 목록 갱신
+      const listResult = await listFolderFiles(projectFolder);
+      if (listResult.success) {
+        setFolderFiles((prev) => ({ ...prev, [projectFolder]: listResult.files }));
+      }
+    }
+
+    updateProjectName(project.id, newName);
+  };
+
   const handleSelectFolder = async () => {
     if (!isElectron()) {
       alert('데스크톱 앱에서만 사용 가능합니다.');
@@ -38,7 +92,9 @@ export function HistoryTab() {
   const toggleExpand = (projectId: string) => {
     const project = projects.find((p) => p.id === projectId);
     if (project?.boundFolder) {
-      loadFolderFiles(project.boundFolder);
+      // 프로젝트 서브폴더에서 파일 로드
+      const projectFolder = getProjectFolder(project.boundFolder, project.name);
+      loadFolderFiles(projectFolder);
     }
     setExpandedProjects((prev) => {
       const next = new Set(prev);
@@ -51,48 +107,58 @@ export function HistoryTab() {
     });
   };
 
-  const handleDownloadFile = async (project: Project, fileType: 'english' | string, content: string) => {
+  const handleDownloadFile = async (project: Project, fileType: 'english' | 'korean' | string, content: string) => {
     const baseName = project.name.replace(/\.(srt|txt)$/i, '');
     const fileName = fileType === 'english'
       ? `[ENG]_${baseName}.srt`
+      : fileType === 'korean'
+      ? `[KOR]_${baseName}.srt`
       : `[${fileType}]_${baseName}.srt`;
 
-    let targetFolder = project.boundFolder || outputFolder;
+    let baseFolder = project.boundFolder || outputFolder;
 
-    if (isElectron() && targetFolder) {
-      const checkResult = await checkFilesExist(targetFolder, [fileName]);
+    if (isElectron() && baseFolder) {
+      // 프로젝트 서브폴더 경로
+      const projectFolder = getProjectFolder(baseFolder, project.name);
+      // 폴더 생성
+      await ensureFolder(projectFolder);
+
+      const checkResult = await checkFilesExist(projectFolder, [fileName]);
       if (checkResult.existingFiles.length > 0) {
         setOverwriteDialog({
           isOpen: true,
           existingFiles: checkResult.existingFiles,
           allFiles: [{ fileName, content }],
-          targetFolder,
+          targetFolder: projectFolder,
           onConfirm: () => {
-            executeSaveFiles(targetFolder, [{ fileName, content }]);
+            executeSaveFiles(projectFolder, [{ fileName, content }]);
             setOverwriteDialog((prev) => ({ ...prev, isOpen: false }));
           },
         });
       } else {
-        await executeSaveFiles(targetFolder, [{ fileName, content }]);
+        await executeSaveFiles(projectFolder, [{ fileName, content }]);
       }
     } else if (isElectron()) {
       const folder = await selectFolder();
       if (folder) {
-        targetFolder = folder;
-        const checkResult = await checkFilesExist(folder, [fileName]);
+        // 프로젝트 서브폴더 경로
+        const projectFolder = getProjectFolder(folder, project.name);
+        await ensureFolder(projectFolder);
+
+        const checkResult = await checkFilesExist(projectFolder, [fileName]);
         if (checkResult.existingFiles.length > 0) {
           setOverwriteDialog({
             isOpen: true,
             existingFiles: checkResult.existingFiles,
             allFiles: [{ fileName, content }],
-            targetFolder: folder,
+            targetFolder: projectFolder,
             onConfirm: () => {
-              executeSaveFiles(folder, [{ fileName, content }]);
+              executeSaveFiles(projectFolder, [{ fileName, content }]);
               setOverwriteDialog((prev) => ({ ...prev, isOpen: false }));
             },
           });
         } else {
-          await executeSaveFiles(folder, [{ fileName, content }]);
+          await executeSaveFiles(projectFolder, [{ fileName, content }]);
         }
       }
     } else {
@@ -146,21 +212,31 @@ export function HistoryTab() {
     const baseName = project.name.replace(/\.(srt|txt)$/i, '');
     const files: { fileName: string; content: string }[] = [];
 
+    // 원본 한국어 파일
+    if (project.koreanSRT) {
+      files.push({ fileName: `[KOR]_${baseName}.srt`, content: project.koreanSRT });
+    }
+    // 영어 파일
     if (project.englishSRT) {
       files.push({ fileName: `[ENG]_${baseName}.srt`, content: project.englishSRT });
     }
+    // 다국어 파일
     project.translations.forEach((t) => {
       files.push({ fileName: `[${t.fileCode}]_${baseName}.srt`, content: t.content });
     });
 
     if (files.length === 0) return;
 
-    let targetFolder = project.boundFolder || outputFolder;
+    let baseFolder = project.boundFolder || outputFolder;
 
-    if (isElectron() && targetFolder) {
+    if (isElectron() && baseFolder) {
+      // 프로젝트 서브폴더 생성
+      const projectFolder = getProjectFolder(baseFolder, project.name);
+      await ensureFolder(projectFolder);
+
       // 파일 존재 여부 확인
       const fileNames = files.map((f) => f.fileName);
-      const checkResult = await checkFilesExist(targetFolder, fileNames);
+      const checkResult = await checkFilesExist(projectFolder, fileNames);
 
       if (checkResult.existingFiles.length > 0) {
         // 덮어쓰기 확인 다이얼로그 표시
@@ -168,36 +244,39 @@ export function HistoryTab() {
           isOpen: true,
           existingFiles: checkResult.existingFiles,
           allFiles: files,
-          targetFolder,
+          targetFolder: projectFolder,
           onConfirm: () => {
-            executeSaveFiles(targetFolder, files);
+            executeSaveFiles(projectFolder, files);
             setOverwriteDialog((prev) => ({ ...prev, isOpen: false }));
           },
         });
       } else {
-        await executeSaveFiles(targetFolder, files);
+        await executeSaveFiles(projectFolder, files);
       }
     } else if (isElectron()) {
       const folder = await selectFolder();
       if (folder) {
-        targetFolder = folder;
+        // 프로젝트 서브폴더 생성
+        const projectFolder = getProjectFolder(folder, project.name);
+        await ensureFolder(projectFolder);
+
         // 파일 존재 여부 확인
         const fileNames = files.map((f) => f.fileName);
-        const checkResult = await checkFilesExist(folder, fileNames);
+        const checkResult = await checkFilesExist(projectFolder, fileNames);
 
         if (checkResult.existingFiles.length > 0) {
           setOverwriteDialog({
             isOpen: true,
             existingFiles: checkResult.existingFiles,
             allFiles: files,
-            targetFolder: folder,
+            targetFolder: projectFolder,
             onConfirm: () => {
-              executeSaveFiles(folder, files);
+              executeSaveFiles(projectFolder, files);
               setOverwriteDialog((prev) => ({ ...prev, isOpen: false }));
             },
           });
         } else {
-          await executeSaveFiles(folder, files);
+          await executeSaveFiles(projectFolder, files);
         }
       }
     } else {
@@ -399,7 +478,7 @@ export function HistoryTab() {
             const isExpanded = expandedProjects.has(project.id);
             const isEditing = editingId === project.id;
             const baseName = project.name.replace(/\.(srt|txt)$/i, '');
-            const fileCount = (project.englishSRT ? 1 : 0) + project.translations.length;
+            const fileCount = (project.koreanSRT ? 1 : 0) + (project.englishSRT ? 1 : 0) + project.translations.length;
             const lastWork = getLastWorkDate(project);
             const isComplete = project.englishReviewed && project.englishSRT;
 
@@ -450,12 +529,12 @@ export function HistoryTab() {
                         value={editingName}
                         onChange={(e) => setEditingName(e.target.value)}
                         onBlur={() => {
-                          if (editingName.trim()) updateProjectName(project.id, editingName.trim());
+                          if (editingName.trim()) handleUpdateProjectName(project, editingName.trim());
                           setEditingId(null);
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            if (editingName.trim()) updateProjectName(project.id, editingName.trim());
+                            if (editingName.trim()) handleUpdateProjectName(project, editingName.trim());
                             setEditingId(null);
                           }
                           if (e.key === 'Escape') setEditingId(null);
@@ -561,8 +640,54 @@ export function HistoryTab() {
                 </div>
 
                 {/* 하위 파일 리스트 (확장 시) */}
-                {isExpanded && fileCount > 0 && (
+                {isExpanded && fileCount > 0 && (() => {
+                  const projectFolder = project.boundFolder ? getProjectFolder(project.boundFolder, project.name) : '';
+                  const projectFolderFiles = projectFolder ? folderFiles[projectFolder] || [] : [];
+
+                  return (
                   <div style={{ borderTop: '1px solid #2a2a3c', background: '#0d0d14' }}>
+                    {/* 한국어 원본 */}
+                    {project.koreanSRT && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '10px 14px 10px 48px',
+                          borderBottom: '1px solid #1a1a28',
+                          gap: 10,
+                        }}
+                      >
+                        <span style={{ fontSize: 14 }}>📄</span>
+                        <span style={{ flex: 1, fontSize: 12, color: '#aaaacc' }}>
+                          [KOR]_{baseName}.srt
+                        </span>
+                        <span style={{
+                          fontSize: 9,
+                          padding: '2px 6px',
+                          background: 'rgba(34, 197, 94, 0.2)',
+                          color: '#22c55e',
+                          borderRadius: 4,
+                          fontWeight: 500,
+                        }}>
+                          한국어 원본
+                        </span>
+                        <button
+                          onClick={() => handleDownloadFile(project, 'korean', project.koreanSRT)}
+                          style={{
+                            fontSize: 10,
+                            padding: '4px 8px',
+                            background: '#1a1a28',
+                            color: '#aaaacc',
+                            border: '1px solid #2a2a3c',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          저장
+                        </button>
+                      </div>
+                    )}
+
                     {/* 영어 자막 */}
                     {project.englishSRT && (
                       <div
@@ -586,7 +711,7 @@ export function HistoryTab() {
                           borderRadius: 4,
                           fontWeight: 500,
                         }}>
-                          영어 원본
+                          영어 번역
                         </span>
                         <button
                           onClick={() => handleDownloadFile(project, 'english', project.englishSRT!)}
@@ -648,8 +773,8 @@ export function HistoryTab() {
                       </div>
                     ))}
 
-                    {/* 바인딩된 폴더의 실제 파일 목록 */}
-                    {project.boundFolder && folderFiles[project.boundFolder] && folderFiles[project.boundFolder].length > 0 && (
+                    {/* 프로젝트 폴더 내 실제 파일 목록 */}
+                    {projectFolderFiles.length > 0 && (
                       <>
                         <div style={{
                           padding: '8px 14px 8px 48px',
@@ -657,10 +782,10 @@ export function HistoryTab() {
                           background: '#12121c',
                         }}>
                           <span style={{ fontSize: 11, color: '#666688' }}>
-                            📁 폴더 내 파일 ({folderFiles[project.boundFolder].length}개)
+                            📁 폴더 내 파일 ({projectFolderFiles.length}개)
                           </span>
                         </div>
-                        {folderFiles[project.boundFolder].map((fileName) => (
+                        {projectFolderFiles.map((fileName) => (
                           <div
                             key={fileName}
                             style={{
@@ -676,7 +801,7 @@ export function HistoryTab() {
                               {fileName}
                             </span>
                             <button
-                              onClick={() => handleDeleteFile(project.boundFolder!, fileName)}
+                              onClick={() => handleDeleteFile(projectFolder, fileName)}
                               style={{
                                 fontSize: 10,
                                 padding: '4px 8px',
@@ -694,7 +819,8 @@ export function HistoryTab() {
                       </>
                     )}
                   </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })}

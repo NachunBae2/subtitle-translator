@@ -85,3 +85,36 @@ export const listFolderFiles = async (
   }
   return window.electronAPI!.listFolderFiles(folderPath);
 };
+
+// 폴더 생성
+export const ensureFolder = async (
+  folderPath: string
+): Promise<{ success: boolean; error?: string }> => {
+  if (!isElectron()) {
+    return { success: true };
+  }
+  return window.electronAPI!.ensureFolder(folderPath);
+};
+
+// 파일 이름 변경
+export const renameFile = async (
+  folderPath: string,
+  oldFileName: string,
+  newFileName: string
+): Promise<{ success: boolean; error?: string }> => {
+  if (!isElectron()) {
+    return { success: false, error: 'Not in Electron environment' };
+  }
+  return window.electronAPI!.renameFile(folderPath, oldFileName, newFileName);
+};
+
+// 여러 파일 이름 일괄 변경
+export const renameFilesBatch = async (
+  folderPath: string,
+  renames: { oldFileName: string; newFileName: string }[]
+): Promise<{ success: boolean; results?: { oldFileName: string; newFileName: string; success: boolean }[]; error?: string }> => {
+  if (!isElectron()) {
+    return { success: false, error: 'Not in Electron environment' };
+  }
+  return window.electronAPI!.renameFilesBatch(folderPath, renames);
+};

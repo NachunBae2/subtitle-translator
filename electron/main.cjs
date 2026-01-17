@@ -130,3 +130,41 @@ ipcMain.handle('list-folder-files', async (event, folderPath) => {
     return { success: false, error: error.message, files: [] };
   }
 });
+
+// IPC: 파일 이름 변경
+ipcMain.handle('rename-file', async (event, { folderPath, oldFileName, newFileName }) => {
+  try {
+    const oldPath = path.join(folderPath, oldFileName);
+    const newPath = path.join(folderPath, newFileName);
+    if (!fs.existsSync(oldPath)) {
+      return { success: false, error: '원본 파일이 존재하지 않습니다.' };
+    }
+    if (fs.existsSync(newPath)) {
+      return { success: false, error: '같은 이름의 파일이 이미 존재합니다.' };
+    }
+    fs.renameSync(oldPath, newPath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC: 여러 파일 이름 일괄 변경 (프로젝트명 변경 시)
+ipcMain.handle('rename-files-batch', async (event, { folderPath, renames }) => {
+  try {
+    const results = [];
+    for (const { oldFileName, newFileName } of renames) {
+      const oldPath = path.join(folderPath, oldFileName);
+      const newPath = path.join(folderPath, newFileName);
+      if (fs.existsSync(oldPath) && !fs.existsSync(newPath)) {
+        fs.renameSync(oldPath, newPath);
+        results.push({ oldFileName, newFileName, success: true });
+      } else {
+        results.push({ oldFileName, newFileName, success: false });
+      }
+    }
+    return { success: true, results };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

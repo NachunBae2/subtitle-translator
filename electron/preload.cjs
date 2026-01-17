@@ -27,4 +27,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 폴더 내 파일 목록
   listFolderFiles: (folderPath) =>
     ipcRenderer.invoke('list-folder-files', folderPath),
+
+  // 파일 이름 변경
+  renameFile: (folderPath, oldFileName, newFileName) =>
+    ipcRenderer.invoke('rename-file', { folderPath, oldFileName, newFileName }),
+
+  // 여러 파일 이름 일괄 변경
+  renameFilesBatch: (folderPath, renames) =>
+    ipcRenderer.invoke('rename-files-batch', { folderPath, renames }),
 });
